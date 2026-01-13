@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Vortex Access Portal</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="login-wrap">
+        <div class="orb"></div> <div class="cyber-card" style="width: 400px; text-align: center; padding: 40px;">
+            <div style="font-size: 40px; margin-bottom: 10px;">👾</div>
+            <h1 style="font-size: 36px; margin-bottom: 5px;">VORTEX<span style="color:var(--primary)">GAMES</span></h1>
+            <p style="color: var(--text-muted); margin-bottom: 30px; letter-spacing: 2px;">SECURE DISTRIBUTION SYSTEM</p>
+            
+            <form id="loginForm">
+                <div style="text-align: left; margin-bottom: 20px;">
+                    <label style="font-size: 12px; color: var(--primary); font-weight: bold;">AGENT ID</label>
+                    <input type="text" id="username" placeholder="Enter username..." required>
+                </div>
+                
+                <div style="text-align: left; margin-bottom: 30px;">
+                    <label style="font-size: 12px; color: var(--secondary); font-weight: bold;">PASSCODE</label>
+                    <input type="password" id="password" placeholder="Enter password..." required>
+                </div>
+
+                <button type="submit" class="btn" style="width: 100%;">
+                    INITIALIZE LOGIN
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.querySelector('button');
+            btn.innerHTML = 'AUTHENTICATING...';
+            
+            const res = await fetch('/auth/login', {
+                method: 'POST', headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({
+                    username: document.getElementById('username').value,
+                    password: document.getElementById('password').value
+                })
+            });
+            const data = await res.json();
+            
+            if(data.success) {
+                btn.innerHTML = 'ACCESS GRANTED';
+                btn.style.borderColor = 'var(--success)';
+                setTimeout(() => {
+                    window.location.href = data.role === 'admin' ? '/admin-panel.html' : '/user-panel.html';
+                }, 800);
+            } else {
+                btn.innerHTML = 'ACCESS DENIED';
+                btn.style.borderColor = 'var(--danger)';
+                setTimeout(() => { btn.innerHTML = 'INITIALIZE LOGIN'; btn.style.borderColor = 'var(--primary)'; }, 2000);
+                alert(data.message);
+            }
+        });
+    </script>
+</body>
+</html>

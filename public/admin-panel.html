@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Vortex Command Center</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* CSS Khusus Mode Edit */
+        .btn-warning {
+            background: rgba(255, 193, 7, 0.1); border: 1px solid #ffc107; color: #ffc107;
+        }
+        .btn-warning:hover { background: #ffc107; color: black; box-shadow: 0 0 15px #ffc107; }
+        
+        .editing-mode {
+            border: 1px solid #ffc107;
+            box-shadow: 0 0 15px rgba(255, 193, 7, 0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-layout">
+        <div class="sidebar">
+            <div class="brand">VORTEX<span>CMD</span></div>
+            
+            <div class="nav-item active" onclick="switchTab('inventory', this)">📦 Inventory</div>
+            <div class="nav-item" onclick="switchTab('users', this)">👥 Agents</div>
+            <div class="nav-item" onclick="switchTab('logs', this)">🛡️ System Logs</div>
+            
+            <div style="margin-top: auto;">
+                <button onclick="logout()" class="btn-danger" style="width: 100%;">SHUTDOWN SYSTEM</button>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <h2 style="margin-bottom: 20px;">SYSTEM STATUS</h2>
+            
+            <div class="stats-grid">
+                <div class="cyber-card">
+                    <div style="color:var(--text-muted); font-size: 12px; font-weight:bold;">TOTAL AGENTS</div>
+                    <div class="stat-num" id="statUsers">0</div>
+                </div>
+                <div class="cyber-card">
+                    <div style="color:var(--text-muted); font-size: 12px; font-weight:bold;">ACTIVE KEYS</div>
+                    <div class="stat-num" id="statKeys">0</div>
+                </div>
+                <div class="cyber-card">
+                    <div style="color:var(--text-muted); font-size: 12px; font-weight:bold;">GAMES IN DB</div>
+                    <div class="stat-num" id="statGames">0</div>
+                </div>
+            </div>
+
+            <div id="tab-inventory" class="tab-content active">
+                
+                <div id="formCard" class="cyber-card" style="margin-bottom: 20px; border-left: 4px solid var(--primary);">
+                    <div style="display:flex; justify-content:space-between; margin-bottom: 15px;">
+                        <h3 id="formTitle" style="color:var(--primary);">UPLOAD NEW ASSET</h3>
+                        <button id="btnCancel" onclick="cancelEdit()" class="btn-danger" style="display:none; padding:5px 10px; font-size:10px;">CANCEL EDIT</button>
+                    </div>
+                    
+                    <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr auto; gap: 10px;">
+                        <input id="gTitle" placeholder="Title">
+                        <input id="gDev" placeholder="Developer">
+                        <input id="gPlat" placeholder="Platform">
+                        <input id="gPrice" placeholder="Price" type="number">
+                        <input id="gRate" placeholder="Rating">
+                        
+                        <button id="btnSubmit" onclick="saveGame()" class="btn">UPLOAD</button>
+                    </div>
+                </div>
+
+                <div class="cyber-card">
+                    <h3>DATABASE ENTRIES</h3>
+                    <table>
+                        <thead><tr><th>ID</th><th>TITLE</th><th>DEV</th><th>PLATFORM</th><th>PRICE</th><th>RATING</th><th>ACTION</th></tr></thead>
+                        <tbody id="gameTable"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="tab-users" class="tab-content">
+                <div class="cyber-card">
+                    <h3 style="color: var(--secondary);">REGISTERED AGENTS</h3>
+                    <table>
+                        <thead><tr><th>ID</th><th>USERNAME</th><th>ROLE</th><th>JOINED</th><th>ACTION</th></tr></thead>
+                        <tbody id="userTable"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="tab-logs" class="tab-content">
+                <div class="cyber-card">
+                    <h3 style="color: var(--danger);">SECURITY LOGS</h3>
+                    <table>
+                        <thead><tr><th>ID</th><th>ACTION</th><th>DETAILS</th><th>TIMESTAMP</th></tr></thead>
+                        <tbody id="logTable"></tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        let gamesData = []; // Menyimpan data game lokal agar mudah diambil saat edit
+        let editingId = null; // Menyimpan ID game yang sedang diedit (null = mode tambah)
+
+        window.onload = () => { loadStats(); loadGames(); };
+
+        function switchTab(name, el) {
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            document.getElementById('tab-'+name).classList.add('active');
+            el.classList.add('active');
+            
+            if(name === 'users') loadUsers();
+            if(name === 'logs') loadLogs();
+            if(name === 'inventory') loadGames();
+        }
+
+        async function loadStats() {
+            const d = await fetch('/api/admin/stats').then(r => r.json());
+            document.getElementById('statUsers').innerText = d.users;
+            document.getElementById('statKeys').innerText = d.keys;
+            document.getElementById('statGames').innerText = d.games;
+        }
+
+        async function loadGames() {
+            const d = await fetch('/api/admin/games').then(r => r.json());
+            gamesData = d; // Simpan ke variabel global
+            
+            document.getElementById('gameTable').innerHTML = d.map(g => `
+                <tr>
+                    <td>#${g.id}</td>
+                    <td style="font-weight:bold; color:white;">${g.title}</td>
+                    <td>${g.developer}</td>
+                    <td><span class="badge badge-user">${g.platform}</span></td>
+                    <td>${parseInt(g.price).toLocaleString()}</td>
+                    <td style="color:var(--primary); font-weight:bold;">${g.rating}</td>
+                    <td style="display:flex; gap:5px;">
+                        <button onclick="editGame(${g.id})" class="btn-warning" style="padding:4px 8px; font-size:10px; border-radius:4px; cursor:pointer; background:transparent;">EDIT</button>
+                        <button onclick="delGame(${g.id})" class="btn-danger" style="padding:4px 8px; font-size:10px;">DELETE</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // --- FITUR BARU: EDIT GAME ---
+        function editGame(id) {
+            const game = gamesData.find(g => g.id === id);
+            if(!game) return;
+
+            // 1. Isi form dengan data lama
+            document.getElementById('gTitle').value = game.title;
+            document.getElementById('gDev').value = game.developer;
+            document.getElementById('gPlat').value = game.platform;
+            document.getElementById('gPrice').value = game.price;
+            document.getElementById('gRate').value = game.rating;
+
+            // 2. Ubah tampilan form jadi Mode Edit
+            editingId = id;
+            document.getElementById('formCard').classList.add('editing-mode');
+            document.getElementById('formTitle').innerText = "EDITING ASSET #" + id;
+            document.getElementById('formTitle').style.color = "#ffc107"; // Warna Kuning
+            
+            const btn = document.getElementById('btnSubmit');
+            btn.innerText = "UPDATE";
+            btn.style.borderColor = "#ffc107";
+            btn.style.color = "#ffc107";
+            
+            document.getElementById('btnCancel').style.display = 'block';
+            
+            // Scroll ke atas
+            document.getElementById('formCard').scrollIntoView({behavior: 'smooth'});
+        }
+
+        function cancelEdit() {
+            editingId = null;
+            document.getElementById('gTitle').value = '';
+            document.getElementById('gDev').value = '';
+            document.getElementById('gPlat').value = '';
+            document.getElementById('gPrice').value = '';
+            document.getElementById('gRate').value = '';
+
+            document.getElementById('formCard').classList.remove('editing-mode');
+            document.getElementById('formTitle').innerText = "UPLOAD NEW ASSET";
+            document.getElementById('formTitle').style.color = "var(--primary)";
+
+            const btn = document.getElementById('btnSubmit');
+            btn.innerText = "UPLOAD";
+            btn.style.borderColor = "";
+            btn.style.color = "";
+
+            document.getElementById('btnCancel').style.display = 'none';
+        }
+
+        // --- SAVE (BISA ADD ATAU UPDATE) ---
+        async function saveGame() {
+            const body = {
+                title: document.getElementById('gTitle').value,
+                developer: document.getElementById('gDev').value,
+                platform: document.getElementById('gPlat').value,
+                price: document.getElementById('gPrice').value,
+                rating: document.getElementById('gRate').value
+            };
+            
+            if(!body.title) return alert("Title required!");
+
+            if(editingId) {
+                // UPDATE MODE
+                await fetch(`/api/admin/games/${editingId}`, {
+                    method: 'PUT',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify(body)
+                });
+                cancelEdit(); // Keluar mode edit
+            } else {
+                // ADD MODE
+                await fetch('/api/admin/games', {
+                    method: 'POST',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify(body)
+                });
+                // Reset form manual
+                document.getElementById('gTitle').value = '';
+                document.getElementById('gDev').value = '';
+                document.getElementById('gPlat').value = '';
+                document.getElementById('gPrice').value = '';
+                document.getElementById('gRate').value = '';
+            }
+
+            loadGames(); 
+            loadStats();
+        }
+
+        // --- FUNGSI LAIN ---
+        async function loadUsers() {
+            const d = await fetch('/api/admin/users').then(r => r.json());
+            document.getElementById('userTable').innerHTML = d.map(u => `
+                <tr>
+                    <td>#${u.id}</td>
+                    <td style="font-weight:bold; color:white;">${u.username}</td>
+                    <td><span class="badge badge-admin">${u.role}</span></td>
+                    <td style="color:var(--text-muted); font-family:monospace;">${new Date(u.created_at).toLocaleString()}</td>
+                    <td><button onclick="banUser(${u.id})" class="btn-danger" style="padding:4px 8px; font-size:10px;">BAN</button></td>
+                </tr>
+            `).join('');
+        }
+
+        async function loadLogs() {
+            const d = await fetch('/api/admin/logs').then(r => r.json());
+            document.getElementById('logTable').innerHTML = d.map(l => `
+                <tr>
+                    <td>#${l.id}</td>
+                    <td style="color:var(--primary); font-weight:bold;">${l.action}</td>
+                    <td style="color:white;">${l.details}</td>
+                    <td style="color:var(--text-muted); font-family:monospace;">${new Date(l.created_at).toLocaleString()}</td>
+                </tr>
+            `).join('');
+        }
+
+        async function delGame(id) { if(confirm('Delete?')) { await fetch(`/api/admin/games/${id}`, {method:'DELETE'}); loadGames(); loadStats(); } }
+        async function banUser(id) { if(confirm('Ban?')) { await fetch(`/api/admin/users/${id}`, {method:'DELETE'}); loadUsers(); loadStats(); } }
+        function logout() { fetch('/auth/logout').then(()=>window.location.href='/'); }
+    </script>
+</body>
+</html>
